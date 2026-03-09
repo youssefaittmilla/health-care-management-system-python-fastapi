@@ -8,10 +8,11 @@ from app.main import app
 from app.db.models import Base
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserRole
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-user.create(db, obj_in=admin_user)
+
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -20,7 +21,6 @@ def override_get_db():
         db.close()
 
 app.dependency_overrides[get_db] = override_get_db
-
 client = TestClient(app)
 
 @pytest.fixture(scope="module")
