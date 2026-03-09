@@ -1,8 +1,23 @@
 import pytest
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 from app.crud import crud_patient
 from app.schemas.patient import PatientCreate, PatientUpdate
-from app.db.models import Patient
+from app.db.models import Patient, Base
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_crud.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture(scope="function")
+def test_db():
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
 def patient_in():
@@ -35,6 +50,6 @@ def test_update_patient(test_db: Session, patient_in):
 
 def test_delete_patient(test_db: Session, patient_in):
     created = crud_patient.patient.create(test_db, obj_in=patient_in)
-    deleted = crud_patient.patient.delete(test_db, db_obj=created)
+    crud_patient.patient.delete(test_db, db_obj=created)
     fetched = crud_patient.patient.get(test_db, patient_id=created.id)
     assert fetched is None
