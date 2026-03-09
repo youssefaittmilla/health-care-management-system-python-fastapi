@@ -1,17 +1,14 @@
 """
 CRUD operations for Patients.
 """
-
 from typing import Any, Dict, Optional, Union
 from sqlalchemy.orm import Session
 
-from app import crud
-from app.db.base import Patient
-from app.models.pydantic import PatientCreate, PatientUpdate
-from app.schemas.patient import Patient as PatientSchema
+from app.crud.base import CRUDBase
+from app.db.models import Patient  # ✅ FIX: import correct
+from app.schemas.patient import PatientCreate, PatientUpdate
 
-
-class CRUDPatient(crud.CRUDBase[Patient, PatientCreate, PatientUpdate]):
+class CRUDPatient(CRUDBase[Patient, PatientCreate, PatientUpdate]):
     """Patient CRUD operations."""
     
     def get_by_email(self, db: Session, *, email: str) -> Optional[Patient]:
@@ -20,21 +17,12 @@ class CRUDPatient(crud.CRUDBase[Patient, PatientCreate, PatientUpdate]):
     
     def create(self, db: Session, *, obj_in: PatientCreate) -> Patient:
         """Create new patient."""
-        db_obj = Patient(
-            first_name=obj_in.first_name,
-            last_name=obj_in.last_name,
-            date_of_birth=obj_in.date_of_birth,
-            email=obj_in.email,
-            phone=obj_in.phone,
-            address=obj_in.address,
-            insurance_provider=obj_in.insurance_provider,
-            insurance_id=obj_in.insurance_id,
-        )
+        db_obj = Patient(**obj_in.model_dump())
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
-
+    
     def update(self, db: Session, *, db_obj: Patient, obj_in: Union[PatientUpdate, Dict[str, Any]]) -> Patient:
         """Update patient."""
         if isinstance(obj_in, dict):
@@ -44,10 +32,8 @@ class CRUDPatient(crud.CRUDBase[Patient, PatientCreate, PatientUpdate]):
         
         for field, value in update_data.items():
             setattr(db_obj, field, value)
-        
         db.commit()
         db.refresh(db_obj)
         return db_obj
-
 
 patient = CRUDPatient(Patient)
