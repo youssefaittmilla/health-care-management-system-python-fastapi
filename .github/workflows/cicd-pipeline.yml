@@ -156,12 +156,12 @@ jobs:
           
       - name: 🧪 Run tests with coverage
         env:
-          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_healthcare_db
-          REDIS_URL: redis://localhost:6379/0
-          SECRET_KEY: test_secret_key_for_ci_minimum_32_characters_long
-          ENVIRONMENT: testing
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_healthcare_db
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test_secret_key_for_ci_minimum_32_characters_long
+        ENVIRONMENT: testing
         run: |
-          pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
+          pytest app/tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
           echo "✅ All tests passed!"
           
       - name: 📊 Upload coverage reports
