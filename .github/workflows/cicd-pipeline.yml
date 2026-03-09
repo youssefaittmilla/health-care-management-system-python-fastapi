@@ -104,6 +104,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
@@ -154,23 +155,14 @@ jobs:
           SECRET_KEY: test_super_secret_key_very_long_for_ci_32_plus_chars_123456789
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python -c "
-import sys, os
-sys.path.insert(0, '.')
-try:
-    from app.db.session import engine
-    from app.db.models import Base
-    Base.metadata.create_all(bind=engine)
-    print('✅ Tables created!')
-except Exception as e:
-    print(f'⚠️ Tables warning: {e}')
-"
+          python -c "import sys, os; sys.path.insert(0, '.'); os.environ['TEST_DATABASE_URL'] = 'postgresql://test_user:test_password@localhost:5432/test_healthcare_db'; exec('try:from app.db.session import engine;from app.db.models import Base;Base.metadata.create_all(bind=engine);print(\"✅ Tables created!\");except Exception as e:print(f\"⚠️ Tables warning: {e}\")')"
+
           pytest app/tests/ -v \
             --cov=app \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-fail-under=0 \
-            --tb=short
+            --tb=short || exit 1
           echo "✅ Tests OK!"
 
       - name: 📊 Codecov
