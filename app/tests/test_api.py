@@ -10,7 +10,7 @@ from app.crud.crud_user import user
 from app.schemas.user import UserCreate, UserRole
 
 # ------------------- CONFIG DB DE TEST -------------------
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"  # Utilisation DB en mémoire
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
@@ -30,6 +30,7 @@ client = TestClient(app)
 # ------------------- FIXTURE DB -------------------
 @pytest.fixture(scope="module", autouse=True)
 def test_db():
+    # Création des tables
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -51,6 +52,7 @@ def admin_token(test_db):
         "/api/auth/login",
         json={"email": "admin@example.com", "password": "password"}
     )
+    assert response.status_code == 200
     return response.json()["access_token"]
 
 # ------------------- FIXTURE PATIENT -------------------
@@ -71,6 +73,7 @@ def patient_data(test_db, admin_token):
         json=data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
+    assert response.status_code == 200
     return response.json()
 
 # ------------------- FIXTURE DOCTOR -------------------
@@ -88,18 +91,21 @@ def doctor_data(test_db, admin_token):
         json=data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
+    assert response.status_code == 200
     doctor_id = response.json()["id"]
+
     availability_data = {
         "day_of_week": 1,
         "start_time": "09:00:00",
         "end_time": "17:00:00",
         "is_available": True
     }
-    client.post(
+    response_avail = client.post(
         f"/api/doctors/{doctor_id}/availability",
         json=availability_data,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
+    assert response_avail.status_code == 200
     return response.json()
 
 # ------------------- TESTS API -------------------
@@ -155,19 +161,15 @@ def test_create_appointment(admin_token, patient_data, doctor_data):
     appointment = {
         "patient_id": patient_data["id"],
         "doctor_id": doctor_data["id"],
-        "start_time": start_time,  # datetime object direct
-        "end_time": end_time,      # datetime object direct
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
         "status": "scheduled",
         "notes": "Regular checkup"
     }
-    # FastAPI / Pydantic accepte maintenant un datetime objet pour le test
+
     response = client.post(
         "/api/appointments/",
-        json={
-            **appointment,
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat()
-        },
+        json=appointment,
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 200
