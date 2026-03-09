@@ -160,6 +160,7 @@ jobs:
           SECRET_KEY: test_secret_key_for_ci_minimum_32_characters_long
           ENVIRONMENT: testing
         run: |
+          export PYTHONPATH=$(pwd)   # <--- ajoute la racine au PYTHONPATH
           pytest app/tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
           echo "✅ All tests passed!"
           
