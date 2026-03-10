@@ -1,11 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 from app.main import app
 from app.db.models import Base
-from app.api.deps import get_db  # ✅ CORRECTION IMPORT
+from app.api.deps import get_db
 from app.crud.crud_user import user
 from app.schemas.user import UserCreate, UserRole
 
@@ -15,15 +15,17 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
-    """Crée la DB une seule fois pour tous les tests."""
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="function")
-def db_session():
-    """Session DB par test."""
+def fresh_db():
+    """DB propre pour chaque test + cleanup users."""
     db = TestingSessionLocal()
+    # Nettoyer users table
+    db.execute(text("DELETE FROM users"))
+    db.commit()
     try:
         yield db
     finally:
@@ -31,35 +33,35 @@ def db_session():
         db.close()
 
 @pytest.fixture(scope="function")
-def client(db_session):
-    """TestClient avec override DB."""
+def client(fresh_db):
     def override_get_db():
         try:
-            yield db_session
+            yield fresh_db
         finally:
             pass
-    
     app.dependency_overrides[get_db] = override_get_db
     test_client = TestClient(app)
     yield test_client
     app.dependency_overrides.clear()
 
 @pytest.fixture(scope="function")
-def admin_token(client, db_session):
-    """Token admin pour tests."""
-    # Créer admin
+def admin_token(client, fresh_db):
+    """Admin unique par test."""
+    db = fresh_db
+    
+    # Créer admin (table vide → pas de doublon)
     admin_user = UserCreate(
         email="admin@test.com",
-        username="admin", 
+        username=f"admin_{id(client)}",  # ✅ UNIQUE par test
         password="password123",
         role=UserRole.ADMIN
     )
-    user.create(db_session, obj_in=admin_user)
-    db_session.commit()
+    created_user = user.create(db, obj_in=admin_user)
+    db.commit()
     
     # Login
     response = client.post("/api/auth/login", json={
-        "email": "admin@test.com", 
+        "email": "admin@test.com",
         "password": "password123"
     })
     assert response.status_code == 200
@@ -70,9 +72,9 @@ def test_health_check(client):
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
-def test_create_patient(client, admin_token, db_session):
+def test_create_patient(client, admin_token):
     data = {
-        "first_name": "Alice", 
+        "first_name": "Alice",
         "last_name": "Johnson",
         "date_of_birth": "1985-05-15",
         "email": "alice@example.com",
@@ -134,7 +136,6 @@ def doctor_data(client, admin_token):
     assert response.status_code == 200
     doctor_id = response.json()["id"]
     
-    # Ajouter disponibilité
     client.post(f"/api/doctors/{doctor_id}/availability", json={
         "day_of_week": 1,
         "start_time": "09:00:00",
@@ -148,7 +149,7 @@ def test_create_appointment(client, admin_token, patient_data, doctor_data):
     dt = datetime.now()
     for _ in range(14):
         dt += timedelta(days=1)
-        if dt.weekday() == 1:  # Mardi
+        if dt.weekday() == 1:
             break
     
     start_time = dt.replace(hour=10, minute=0, second=0, microsecond=0).isoformat()
