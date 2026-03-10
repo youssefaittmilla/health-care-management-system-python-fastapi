@@ -161,7 +161,7 @@ jobs:
           " || echo '⚠️ Tables warning'
 
 
-       - name: 🧪 Run tests with coverage
+      - name: 🧪 Run tests with coverage
         env:
           TEST: true
           ENVIRONMENT: testing
