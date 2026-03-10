@@ -6,10 +6,9 @@ from app.main import app
 from app.db.session import get_db
 from app.api.deps import get_current_user, get_current_active_user
 
-# ─── Helper : Objets SQLAlchemy-like ─────────────────────────────────────────
 def make_patient(overrides=None):
     obj = MagicMock()
-    obj.id = 1                    # ← INT (fix MagicMock > int)
+    obj.id = 1
     obj.first_name = "Test"
     obj.last_name = "Patient"
     obj.email = "test@example.com"
@@ -19,14 +18,13 @@ def make_patient(overrides=None):
     obj.insurance_provider = "Test Ins"
     obj.insurance_id = "TEST123"
     obj.created_at = datetime.now()
-    if overrides:
-        for k, v in overrides.items():
-            setattr(obj, k, v)
+    if overrides: 
+        for k, v in overrides.items(): setattr(obj, k, v)
     return obj
 
 def make_doctor(overrides=None):
     obj = MagicMock()
-    obj.id = 2                    # ← INT (fix MagicMock > int)
+    obj.id = 2
     obj.first_name = "Dr"
     obj.last_name = "Test"
     obj.email = "doctor@example.com"
@@ -34,8 +32,7 @@ def make_doctor(overrides=None):
     obj.specialization = "Cardiology"
     obj.created_at = datetime.now()
     if overrides:
-        for k, v in overrides.items():
-            setattr(obj, k, v)
+        for k, v in overrides.items(): setattr(obj, k, v)
     return obj
 
 def make_appointment():
@@ -50,42 +47,36 @@ def make_appointment():
     obj.created_at = datetime.now()
     return obj
 
-# ─── Fixture client ──────────────────────────────────────────────────────────
 @pytest.fixture
 def client():
-    # Mock user complet (fix 403)
     mock_user = MagicMock()
     mock_user.id = 1
     mock_user.is_active = True
     mock_user.role = "admin"
     
     mock_db = MagicMock()
-    
     app.dependency_overrides = {
         get_db: lambda: mock_db,
         get_current_user: lambda: mock_user,
         get_current_active_user: lambda: mock_user
     }
     
-    # ✅ FIX ULTIME : Mock TOUS les appels get()
+    # 🔥 FIX ULTIME : Mock check_conflicts()
     with (
         patch('app.crud.crud_patient.patient.create', return_value=make_patient()),
         patch('app.crud.crud_patient.patient.get_by_email', return_value=None),
         patch('app.crud.crud_patient.patient.get', return_value=make_patient()),
-        
         patch('app.crud.crud_doctor.doctor.create', return_value=make_doctor()),
         patch('app.crud.crud_doctor.doctor.get_by_email', return_value=None),
         patch('app.crud.crud_doctor.doctor.get', return_value=make_doctor()),
-        
-        # ✅ FIX TypeError : appointment validation
         patch('app.crud.crud_appointment.appointment.create', return_value=make_appointment()),
-        patch('app.crud.crud_appointment.appointment.get', return_value=make_appointment()),
+        # 🔥 FIX CRITIQUE : check_conflicts retourne False
+        patch('app.crud.crud_appointment.appointment.check_conflicts', return_value=False),
     ):
         yield TestClient(app)
     
     app.dependency_overrides.clear()
 
-# ─── Tests ───────────────────────────────────────────────────────────────────
 def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
@@ -119,7 +110,7 @@ def patient_data(client):
     }
     response = client.post("/api/patients/", json=data)
     assert response.status_code == 200
-    return {"id": 1}  # INT explicite
+    return {"id": 1}
 
 @pytest.fixture
 def doctor_data(client):
@@ -130,19 +121,17 @@ def doctor_data(client):
     }
     response = client.post("/api/doctors/", json=data)
     assert response.status_code == 200
-    return {"id": 2}  # INT explicite
+    return {"id": 2}
 
 def test_create_appointment(client, patient_data, doctor_data):
-    # Date lundi 10h
     dt = datetime.now()
     for _ in range(14):
         dt += timedelta(days=1)
-        if dt.weekday() == 0:  # Lundi
-            break
+        if dt.weekday() == 0: break
     
     data = {
-        "patient_id": 1,  # ✅ INT fixe
-        "doctor_id": 2,   # ✅ INT fixe
+        "patient_id": 1,
+        "doctor_id": 2,
         "start_time": dt.replace(hour=10, minute=0, second=0, microsecond=0).isoformat(),
         "end_time": dt.replace(hour=10, minute=30, second=0, microsecond=0).isoformat(),
         "status": "scheduled",
