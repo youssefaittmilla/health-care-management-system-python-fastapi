@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Union
 from sqlalchemy.orm import Session
 
 from app.crud.crud_base import CRUDBase
-from app.db.models import Patient  # ✅ FIX: import correct
+from app.db.models import Patient
 from app.schemas.patient import PatientCreate, PatientUpdate
 
 class CRUDPatient(CRUDBase[Patient, PatientCreate, PatientUpdate]):
@@ -35,15 +35,18 @@ class CRUDPatient(CRUDBase[Patient, PatientCreate, PatientUpdate]):
         db.commit()
         db.refresh(db_obj)
         return db_obj
-    def remove(self, db: Session, *, id: int) -> Patient:  # ✅ AJOUTÉ
+    
+    def delete(self, db: Session, *, db_obj: Patient) -> Patient:
+        """Delete patient."""
+        db.delete(db_obj)
+        db.commit()
+        return db_obj
+    
+    def remove(self, db: Session, *, id: int) -> Patient:
+        """Remove patient by ID."""
         obj = db.query(self.model).get(id)
         db.delete(obj)
         db.commit()
         return obj
-    def delete(self, db: Session, *, db_obj: Patient) -> Patient:
-    """Delete patient."""
-    db.delete(db_obj)
-    db.commit()
-    return db_obj        
 
 patient = CRUDPatient(Patient)

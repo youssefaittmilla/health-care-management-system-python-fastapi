@@ -39,7 +39,7 @@ def test_create_patient(test_db: Session, patient_in):
 
 def test_get_patient(test_db: Session, patient_in):
     created = crud_patient.patient.create(test_db, obj_in=patient_in)
-    fetched = crud_patient.patient.get(test_db, id=created.id)
+    fetched = crud_patient.patient.get(test_db, id=created.id)  # ✅ FIX: id (pas patient_id)
     assert fetched.id == created.id
 
 def test_update_patient(test_db: Session, patient_in):
@@ -50,6 +50,6 @@ def test_update_patient(test_db: Session, patient_in):
 
 def test_delete_patient(test_db: Session, patient_in):
     created = crud_patient.patient.create(test_db, obj_in=patient_in)
-    crud_patient.patient.delete(test_db, db_obj=created)
-    fetched = crud_patient.patient.get(test_db, patient_id=created.id)
+    crud_patient.patient.delete(test_db, db_obj=created)  # ✅ FIX: delete() avec db_obj
+    fetched = crud_patient.patient.get(test_db, id=created.id)  # ✅ FIX: id (pas patient_id)
     assert fetched is None
