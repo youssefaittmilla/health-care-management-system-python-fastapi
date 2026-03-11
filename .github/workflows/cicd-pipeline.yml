@@ -9,7 +9,7 @@ on:
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/healthcare-fastapi
   PYTHON_VERSION: '3.11'
-
+  
 jobs:
   build-and-install:
     name: 📦 Build & Install
